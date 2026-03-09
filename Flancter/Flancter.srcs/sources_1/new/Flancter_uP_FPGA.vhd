@@ -36,7 +36,6 @@
 --   own input synchronisation.
 ----------------------------------------------------------------------------------
 
-
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -65,16 +64,52 @@ end entity Flancter_uP_FPGA;
 
 architecture RTL of Flancter_uP_FPGA is
 
+    ---------------------------------------------------------------------------
+    -- Function: resize_addr
+    --   Dynamically resizes a 32-bit base address to match the target width.
+    --
+    --   Parameters:
+    --     base  : 32-bit source address
+    --     width : target width in bits
+    --
+    --   Behavior:
+    --     width > 32  → Zero-extends (MSBs padded with '0', base in LSBs)
+    --     width <= 32 → Truncates (keeps only the lower 'width' bits)
+    --
+    --   Example:
+    --     resize_addr(x"ABCD00A5", 64) → x"00000000_ABCD00A5"
+    --     resize_addr(x"ABCD00A5", 16) → x"00A5"
+    ---------------------------------------------------------------------------
+    function resize_addr (base : std_logic_vector(31 downto 0); width : integer) return std_logic_vector is
+        variable result : std_logic_vector(width-1 downto 0) := (others => '0');
+    begin
+        if (width > 32) then
+            result(31 downto 0) := base;
+        else 
+            result := base(width - 1 downto 0);
+        end if;
+
+        return result;
+    end function resize_addr;
+
+    -- Base address (32-bit canonical value)
+    constant BASE_ADDR_C : std_logic_vector(31 downto 0) := x"ABCD00A5";
+
     -- Internal control signals
     signal SET_CE   : std_logic := '0';   -- Clock-enable to set the Flancter
     signal RESET_CE : std_logic := '0';   -- Clock-enable to clear the Flancter
     signal FLAG     : std_logic := '0';   -- Raw Flancter flag output
+
+    -- Memory-mapped address constant (dynamically sized to ADDRESS_W)
+    constant MEM_ADDR_C : std_logic_vector(ADDRESS_W - 1 downto 0) := resize_addr(BASE_ADDR_C, ADDRESS_W);
 
     -- 2-stage resynchroniser (FLAG → SYS_CLK domain)
     signal ff3_o    : std_logic := '0';   -- First sync stage
     signal ff4_o    : std_logic := '0';   -- Second sync stage (stable copy)
 
 begin
+
+    TARGET_ADDRESS <= MEM_ADDR_C;
 
     ---------------------------------------------------------------------------
     -- Drive the interrupt pin directly from FLAG.
@@ -121,7 +156,7 @@ begin
     ---------------------------------------------------------------------------
     P_ADDR_DECODE : process (ADDRESS)
     begin
-        if (ADDRESS = TARGET_ADDRESS) then
+        if (ADDRESS = MEM_ADDR_C) then
             RESET_CE <= '1';
         else
             RESET_CE <= '0';
