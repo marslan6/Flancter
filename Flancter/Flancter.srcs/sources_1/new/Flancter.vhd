@@ -29,12 +29,12 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity Flancter is
     PORT (
-        sys_clk   : in std_logic;  -- Fast clock domain drives FF1
-        reset_clk   : in std_logic;  -- Slow clock domain samples FF1 into FF2
+        sys_clk : in std_logic;  -- Fast clock domain drives FF1
+        reset_clk : in std_logic;  -- Slow clock domain samples FF1 into FF2
         set_ce : in std_logic;  -- Clock enable for FF1 update on sys_clk edge
         reset_ce : in std_logic;  -- Clock enable for FF2 update on reset_clk edge
-        reset_async      : in std_logic;  -- Asynchronous active-high reset for both flops
-        flag       : out std_logic  -- High while FF1 and FF2 differ
+        reset_async : in std_logic;  -- Asynchronous active-high reset for both flops
+        flag : out std_logic  -- High while FF1 and FF2 differ
     );
 end entity Flancter;
 
