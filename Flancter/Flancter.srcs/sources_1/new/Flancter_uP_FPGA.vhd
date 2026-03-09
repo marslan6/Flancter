@@ -27,19 +27,19 @@ entity Flancter_uP_FPGA is
     GENERIC (
         ADDRESS_W : integer range 1 to 256 := 32;
         -- Define the specific memory address the uP must read to clear the flag
-        TARGET_ADDRESS : std_logic_vector(31 downto 0) := x"ABCD00A5"
+        TARGET_ADDRESS : std_logic_vector(ADDRESS_W-1 downto 0)
     );
     PORT (
-        GEN_INTERRUPT_TO_uC : in std_logic := '0';
+        GEN_INTERRUPT_TO_uC : in std_logic;
 
         -- FPGA DOMAIN
-        SYS_CLK : in std_logic := '0';
-        RESET : in std_logic := '0';
+        SYS_CLK : in std_logic;
+        RESET : in std_logic;
         INT : out std_logic := '0';
 
         -- uC DOMAIN
-        RD_L : in std_logic := '0';
-        ADDRESS : in std_logic_vector(ADDRESS_W-1 downto 0) := x"FFFFFFFF"
+        RD_L : in std_logic;
+        ADDRESS : in std_logic_vector(ADDRESS_W-1 downto 0)
     );
 end entity Flancter_uP_FPGA;
 
@@ -47,6 +47,8 @@ architecture RTL of Flancter_uP_FPGA is
     signal SET_CE : std_logic := '0';
     signal RESET_CE : std_logic := '0';
     signal FLAG : std_logic := '0';
+    signal sync_ff_1 : std_logic := '0';
+
 
     signal ff3_o : std_logic := '0';
     signal ff4_o : std_logic := '0';
@@ -76,7 +78,7 @@ begin
             end if;
         end process;
 
-        P_ADDR_DECODE : process (RD_L, ADDRESS)
+        P_ADDR_DECODE : process (ADDRESS)
         begin 
             if (ADDRESS = TARGET_ADDRESS) then
                 RESET_CE <= '1';
@@ -85,7 +87,7 @@ begin
             end if;
         end process P_ADDR_DECODE;
 
-        P_SET_CE : process (SYS_CLK, GEN_INTERRUPT_TO_uC)
+        P_SET_CE : process (SYS_CLK, RESET)
         begin
             if (RESET = '1') then
                 SET_CE <= '0';
