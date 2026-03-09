@@ -100,64 +100,21 @@ Wraps the Flancter cell with synchronization, address decode, and set-enable log
 
 ```mermaid
 flowchart TD
-    A["IDLE STATE\nff1=ff2, FLAG=0\nff4_o=0"] --> B{"GEN_INTERRUPT\n= 1 ?"}
+    A["IDLE STATE<br>ff1=ff2, FLAG=0<br>ff4_o=0"] --> B{"GEN_INTERRUPT<br>= 1 ?"}
     B -- No --> A
-    B -- Yes --> C{"FLAG = ff4_o ?\n(settled)"}
+    B -- Yes --> C{"FLAG = ff4_o ?<br>(settled)"}
     C -- No --> C
-    C -- Yes --> D["SET_CE = 1\n(next SYS_CLK edge)"]
-    D --> E["FF1 = NOT FF2\nFLAG goes HIGH"]
+    C -- Yes --> D["SET_CE = 1<br>(next SYS_CLK edge)"]
+    D --> E["FF1 = NOT FF2<br>FLAG goes HIGH"]
     E --> F["INT asserted to uP"]
-    F --> G["FF3 = FLAG (1 clk)\nFF4 = FF3 (2 clk)\nSynchronizer settling"]
-    G --> H{"uP reads\nTARGET_ADDRESS ?"}
+    F --> G["FF3 = FLAG (1 clk)<br>FF4 = FF3 (2 clk)<br>Synchronizer settling"]
+    G --> H{"uP reads<br>TARGET_ADDRESS ?"}
     H -- No --> H
-    H -- Yes --> I["RESET_CE = 1\n(address decode)"]
-    I --> J["RD_L rising edge\nFF2 = FF1"]
-    J --> K["FLAG goes LOW\nINT deasserted"]
-    K --> L["FF3 = 0 (1 clk)\nFF4 = 0 (2 clk)\nSync settles"]
+    H -- Yes --> I["RESET_CE = 1<br>(address decode)"]
+    I --> J["RD_L rising edge<br>FF2 = FF1"]
+    J --> K["FLAG goes LOW<br>INT deasserted"]
+    K --> L["FF3 = 0 (1 clk)<br>FF4 = 0 (2 clk)<br>Sync settles"]
     L --> A
-```
-
----
-
-## Timing Diagram
-
-```
-              SET                              CLEAR
-              event                            event
-               |                                |
-               v                                v
-SYS_CLK   ----+  +--+  +--+  +--+  +--+  +--+  +--+  +--+  +--
-              |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-              +--+  +--+  +--+  +--+  +--+  +--+  +--+  +--+
-
-SET_CE    ----+  +------------------------------------------------
-           ___|  |________________________________________________
-
-ff1_o     --------+                                    +----------
-           _______|  (set to NOT ff2_o = 1)            |__________
-
-FLAG      --------+                              +----+
-           _______|  (ff1 XOR ff2 = 1)           |________________
-
-ff3_o     ---------------+                          +-------------
-           ______________|  (+1 SYS_CLK)            |_____________
-
-ff4_o     ----------------------+                       +---------
-           _____________________|  (+2 SYS_CLK)        |_________
-
-INT       --------+                              +----------------
-           _______|  (= FLAG)                    |________________
-
-RD_L      -------------------------------------+  +---------------
-           (uP reads target addr)              |  |  (rising edge)
-                                               +--+
-
-ff2_o     -------------------------------------------+
-           __________________________________________|  (copies ff1)
-
-RESET_CE  ---------------------------------+        +-----------------
-           ________________________________|________|
-                                           (addr match)
 ```
 
 ---
