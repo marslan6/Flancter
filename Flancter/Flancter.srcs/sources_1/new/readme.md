@@ -119,6 +119,79 @@ flowchart TD
 
 ---
 
+## Working Principle
+
+### 1. Idle State (no interrupt)
+
+Both flip-flops hold the same value (`Q1 = Q2`), so `FLAG = Q1 XOR Q2 = 0`. The `INT` line is **LOW** -- no interrupt is pending. The synchronizer outputs (`ff3_o`, `ff4_o`) have settled to `0`, so `FLAG = ff4_o` is true and the system is ready to accept a new interrupt request.
+
+### 2. Setting the Interrupt (FPGA side)
+
+When the FPGA logic needs to signal the uP, it asserts `GEN_INTERRUPT_TO_uC = '1'`.
+
+| What happens | Signal effect |
+|---|---|
+| `SET_CE` goes **HIGH** | Because `FLAG = ff4_o` (settled) AND `GEN_INTERRUPT = '1'` |
+| On next `SYS_CLK` rising edge, `FF1.D = NOT(Q2)` latches | `Q1` flips to the opposite of `Q2` |
+| `FLAG = Q1 XOR Q2` becomes **`1`** | Because `Q1 != Q2` now |
+| `INT` goes **HIGH** | `INT <= FLAG`, interrupt is asserted to the uP |
+| `SET_CE` goes **LOW** on next clock | Because `FLAG != ff4_o` (ff4_o still holds old value, synchronizer hasn't settled) |
+
+> **Key point:** `SET_CE` is only HIGH for **one clock cycle**. After that, the `FLAG != ff4_o` guard blocks further sets until the system settles again. This prevents double-triggering.
+
+### 3. Synchronizer Settling (FF3/FF4)
+
+The `FLAG` signal propagates through the double-synchronizer chain in the `SYS_CLK` domain:
+
+| Clock cycle | `ff3_o` | `ff4_o` | `FLAG = ff4_o ?` |
+|---|---|---|---|
+| +0 (FLAG just went HIGH) | `0` | `0` | No (blocked) |
+| +1 | `1` | `0` | No (blocked) |
+| +2 | `1` | `1` | Yes (but harmless -- FF1 re-latches same value) |
+
+> **Why this matters:** The synchronizer ensures that `SET_CE` logic in the `SYS_CLK` domain only sees a stable, metastability-free version of `FLAG`. During the 2-cycle settling window, `SET_CE` stays LOW, preventing glitchy re-triggers.
+
+### 4. Clearing the Interrupt (uP side)
+
+The uP sees `INT = HIGH` and responds by reading the designated `TARGET_ADDRESS`:
+
+| What happens | Signal effect |
+|---|---|
+| uP places `TARGET_ADDRESS` on the address bus | `RESET_CE` goes **HIGH** (address decode match) |
+| uP asserts `RD_L` (active-low read strobe) | `RD_L` goes LOW then back HIGH |
+| On `RD_L` **rising edge**, `FF2.D = Q1` latches | `Q2` copies `Q1`, so `Q1 = Q2` again |
+| `FLAG = Q1 XOR Q2` becomes **`0`** | Because `Q1 = Q2` now |
+| `INT` goes **LOW** | Interrupt is cleared |
+| `RESET_CE` goes **LOW** | Address bus moves to a different address |
+
+> **Key point:** The interrupt is cleared by a **read operation** -- the uP doesn't need to write anything. Simply reading the target address triggers `RD_L` which clocks FF2.
+
+### 5. Recovery and Re-arm
+
+After clearing, the synchronizer needs 2 more `SYS_CLK` cycles to settle `ff3_o` and `ff4_o` back to `0`. Once `FLAG = ff4_o = 0`, the Flancter is **re-armed** and ready for the next interrupt.
+
+### Signal Lifecycle Summary
+
+```
+  GEN_INTERRUPT:  ____/^^^^^^^^^^^^^\__________  (FPGA asserts when event occurs)
+
+  SET_CE:         __________/^\_________________  (HIGH for 1 SYS_CLK cycle only)
+
+  Q1 (FF1):       ___________/^^^^^^^^^^^^^^^^^^  (toggles on SET_CE)
+
+  FLAG (INT):     ___________/^^^^^^^^^^\_______  (HIGH while Q1 != Q2)
+
+  RD_L:           ^^^^^^^^^^^^^^^^^\_/^^^^^^^^^^  (uP read strobe, active-low)
+
+  RESET_CE:       _________________/^^\_________  (HIGH when address matches)
+
+  Q2 (FF2):       _____________________/^^^^^^^^  (copies Q1 on RD_L rising edge)
+
+  ff3_o:          _____________/^^^^^^^^\___+2ck  (1 SYS_CLK delay of FLAG)
+
+  ff4_o:          _______________/^^^^^^\_+2ck__  (2 SYS_CLK delay of FLAG)
+```
+
 ## Clock Domain Crossing Safety
 
 | Mechanism | Purpose |
