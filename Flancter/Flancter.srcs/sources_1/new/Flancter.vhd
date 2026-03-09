@@ -25,11 +25,11 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity Flancter is
     PORT (
-        clk_fast   : in std_logic;  -- Fast clock domain drives FF1
-        clk_slow   : in std_logic;  -- Slow clock domain samples FF1 into FF2
-        ff_fast_ce : in std_logic;  -- Clock enable for FF1 update on clk_fast edge
-        ff_slow_ce : in std_logic;  -- Clock enable for FF2 update on clk_slow edge
-        reset      : in std_logic;  -- Asynchronous active-high reset for both flops
+        set_clk   : in std_logic;  -- Fast clock domain drives FF1
+        reset_clk   : in std_logic;  -- Slow clock domain samples FF1 into FF2
+        set_ce : in std_logic;  -- Clock enable for FF1 update on set_clk edge
+        reset_ce : in std_logic;  -- Clock enable for FF2 update on reset_clk edge
+        reset_async      : in std_logic;  -- Asynchronous active-high reset for both flops
         flag       : out std_logic  -- High while FF1 and FF2 differ
     );
 end entity Flancter;
@@ -39,23 +39,23 @@ architecture RTL of Flancter is
     signal ff2_o : std_logic := '0';  -- FF2 output in slow domain
 begin
 
-    P_FF1 : process (clk_fast, reset)  -- FF1 toggles based on FF2 state when enabled
+    P_FF1 : process (set_clk, reset_async)  -- FF1 toggles based on FF2 state when enabled
     begin
-        if (reset = '1') then
+        if (reset_async = '1') then
             ff1_o <= '0';
-        elsif rising_edge(clk_fast) then
-            if ff_fast_ce = '1' then
+        elsif rising_edge(set_clk) then
+            if set_ce = '1' then
                 ff1_o <= not(ff2_o);
             end if;
         end if;
     end process P_FF1;
 
-    P_FF2 : process (clk_slow, reset)  -- FF2 captures FF1; cross-clock transfer from clk_fast to clk_slow
+    P_FF2 : process (reset_clk, reset_async)  -- FF2 captures FF1; cross-clock transfer from set_clk to reset_clk
     begin
-        if (reset = '1') then
+        if (reset_async = '1') then
             ff2_o <= '0';
-        elsif rising_edge(clk_slow) then
-            if ff_slow_ce = '1' then
+        elsif rising_edge(reset_clk) then
+            if reset_ce = '1' then
                 ff2_o <= ff1_o;
             end if;
         end if;
