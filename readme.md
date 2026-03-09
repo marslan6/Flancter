@@ -1,4 +1,4 @@
-# Flancter — Cross-Clock-Domain Interrupt Handshake (VHDL)
+# Flancter — Safe Clock Domain Crossing for Interrupt Signaling (VHDL)
 
 ![Language](https://img.shields.io/badge/Language-VHDL-blue) ![Platform](https://img.shields.io/badge/Platform-FPGA-orange) ![Tool](https://img.shields.io/badge/Tool-Vivado-green) ![Pattern](https://img.shields.io/badge/Pattern-CDC_Handshake-red) ![Architecture](https://img.shields.io/badge/Architecture-RTL-yellow)
 
